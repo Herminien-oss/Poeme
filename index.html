@@ -1,4 +1,150 @@
 <!DOCTYPE html>
 <html lang="fr">
-<!-- ... le contenu déjà présent dans la canvas (très long), conservé tel quel ... -->
+<head>
+  <meta charset="UTF-8">
+  <title>Indice de poéticité</title>
+  <style>
+    body {
+      font-family: monospace;
+      text-align: center;
+      margin: 40px;
+      background: #fff;
+      color: #000;
+    }
+    textarea, input, button, .output {
+      display: block;
+      margin: 20px auto;
+      font-family: monospace;
+      font-size: 16px;
+    }
+    textarea {
+      width: 90%;
+      height: 200px;
+    }
+    input[type="text"] {
+      width: 60%;
+    }
+    .output {
+      background: #eee;
+      padding: 20px;
+      width: 90%;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Indice de poéticité</h1>
+  <textarea id="texte" placeholder="Écris ici…"></textarea>
+  <input type="text" id="motAjoute" placeholder="Mot à ajouter (facultatif)">
+  <label><input type="checkbox" id="foudre"> Veux-tu la foudre ?</label>
+  <button id="analyserBtn">Analyser</button>
+  <div class="output" id="resultat"></div>
+
+  <script>
+    let rimbaudCorpus = [];
+let corpusAuteurs = {};
+
+    let basePoetique = new Set();
+
+    async function chargerBasePoetique() {
+      const response = await fetch('base_poetique.json');
+      if (!response.ok) {
+        document.getElementById("resultat").textContent = "Erreur de chargement de la base poétique.";
+        return;
+      }
+      const data = await response.json();
+      basePoetique = new Set(data);
+    }
+
+    async function chargerCorpus() {
+      const response = await fetch('rimbaud.json');
+      if (!response.ok) {
+        document.getElementById("resultat").textContent = "Erreur de chargement du corpus Rimbaud.";
+        return;
+      }
+      rimbaudCorpus = await response.json();
+    }
+
+    async function chargerCorpusAuteurs() {
+  const fichiers = ["rimbaud_complet.json", "verlaine.json", "baudelaire.json"];
+  for (const fichier of fichiers) {
+    if (fichier === "base_poetique.json") continue;
+    try {
+      const res = await fetch(fichier);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const nom = fichier.replace(/\.json$/, '').replace(/_/g, ' ');
+      corpusAuteurs[nom] = data;
+    } catch (e) {
+      console.warn(`Échec de chargement de ${fichier}`);
+    }
+  }
+}
+
+async function analyser() {
+  if (!basePoetique.size) {
+    await chargerBasePoetique();
+    if (!basePoetique.size) return;
+  }
+  if (!Object.keys(corpusAuteurs).length) {
+    await chargerCorpusAuteurs();
+  }
+      if (!basePoetique.size) {
+        await chargerBasePoetique();
+        if (!basePoetique.size) return;
+      }
+      if (!rimbaudCorpus.length) {
+        // suppression du chargement rimbaudCorpus devenu générique
+      }
+
+      const texteBrut = document.getElementById("texte").value;
+      const texte = texteBrut.toLowerCase().replace(/[.,!?;:\"()\n\r]/g, " ");
+      const mots = texte.split(/\s+/).filter(Boolean);
+      const motAjoute = document.getElementById("motAjoute").value.toLowerCase().trim();
+      const foudre = document.getElementById("foudre").checked;
+
+      const texteSansPonct = texte.replace(/[^a-zàâçéèêëîïôûùüÿñæœ\s-]/gi, " ").replace(/\s+/g, " ");
+
+      if (foudre) {
+        if (texteSansPonct.includes("jeanne-isadora drouault")) return afficherResultat("10 000 000");
+        if (texteSansPonct.includes("jonathan boudina") || texteSansPonct.includes("jeanne drouault")) return afficherResultat("1 000 000");
+      }
+
+      for (let i = 0; i <= mots.length - 15; i++) {
+        const sequence = mots.slice(i, i + 15).join(" ");
+        for (const [auteur, corpus] of Object.entries(corpusAuteurs)) {
+          for (let j = 0; j <= corpus.length - 15; j++) {
+            const rSeq = corpus.slice(j, j + 15).join(" ");
+            if (sequence === rSeq) return afficherResultat(`99
+ce qui reste c’est ${auteur}`);
+          }
+        }
+      }
+
+      let poetiques = 0;
+      for (const mot of mots) if (basePoetique.has(mot)) poetiques++;
+
+      let score = Math.round((poetiques / mots.length * 100) + 2 * Math.sqrt(poetiques));
+
+      if (motAjoute) {
+        if (motAjoute === "douleur") score -= 1;
+        else if (motAjoute !== "je") {
+          return afficherResultat("HAHA TU VEUX INTERVENIR ? TU VEUX AJOUTER ? OU RETRANCHER ? TU T’ES CRU POÈTE HERMÉNEUTE OU QU’EN SAIS-JE ? SAIS TA PLACE Ô IMBÉCILE");
+        }
+      }
+
+      if (mots.length > 30) {
+        afficherResultat(score.toLocaleString('fr-FR') + "\nUn peu de Rimbaud c’est déjà tout Rimbaud");
+      } else {
+        afficherResultat(score.toLocaleString('fr-FR'));
+      }
+    }
+
+    function afficherResultat(texte) {
+      document.getElementById("resultat").textContent = texte;
+    }
+
+    document.getElementById("analyserBtn").addEventListener("click", analyser);
+  </script>
+</body>
 </html>
